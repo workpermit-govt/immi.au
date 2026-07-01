@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin Dashboard — China Tradex N Tour</title>
+<link rel="icon" type="image/png" href="../images/favicon.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="admin-page-body">
+
+<div class="admin-topbar">
+  <div class="admin-brand">China Tradex N Tour <span>Admin</span></div>
+  <div style="display:flex; gap:12px; align-items:center;">
+    <a href="../apply.html?admin=1" class="btn btn-gold" style="padding:9px 20px; font-size:0.82rem;">+ New Application</a>
+    <button class="btn btn-outline" id="adminLogoutBtn" style="padding:9px 18px; font-size:0.82rem;">Log Out</button>
+  </div>
+</div>
+
+<main class="admin-main">
+  <div class="admin-quick-row">
+    <a href="../apply.html?admin=1" class="admin-quick-card">
+      <div class="aq-icon">&#128221;</div>
+      <div>
+        <h4>Submit New Application</h4>
+        <p>Fill the visa form on behalf of a user using their passport number.</p>
+      </div>
+    </a>
+    <a href="../dashboard.html" class="admin-quick-card">
+      <div class="aq-icon">&#128270;</div>
+      <div>
+        <h4>Track an Application</h4>
+        <p>Look up any application's live status by passport number.</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="admin-stats-row">
+    <div class="admin-stat-card">
+      <div class="as-label">Total Applications</div>
+      <div class="as-value" id="statTotal">0</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="as-label">Processing</div>
+      <div class="as-value" id="statProcessing">0</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="as-label">Document Verified</div>
+      <div class="as-value" id="statVerified">0</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="as-label">Approved</div>
+      <div class="as-value" id="statApproved">0</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="as-label">Rejected</div>
+      <div class="as-value" id="statRejected">0</div>
+    </div>
+  </div>
+
+  <div class="admin-table-wrap">
+    <div class="admin-table-head">
+      <h3>All Applications</h3>
+      <input type="text" class="admin-search" id="adminSearch" placeholder="Search by name or passport number...">
+    </div>
+    <table class="admin-table" id="adminTable">
+      <thead>
+        <tr>
+          <th>Applicant</th>
+          <th>Passport No.</th>
+          <th>Country</th>
+          <th>Visa Type</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody"></tbody>
+    </table>
+    <div class="admin-empty" id="adminEmpty" style="display:none;">No applications found yet.</div>
+  </div>
+</main>
+
+<!-- APPLICATION DETAIL / MANAGE MODAL -->
+<div class="admin-modal-overlay" id="appModalOverlay">
+  <div class="admin-modal" id="appModal">
+    <div class="admin-modal-head">
+      <h3 id="modalAppTitle">Application Details</h3>
+      <button type="button" class="admin-modal-close" id="modalCloseBtn" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="admin-modal-body">
+
+      <div class="modal-section">
+        <h4>Applicant Information</h4>
+        <div class="modal-info-grid">
+          <div><span class="mi-label">Full Name</span><span class="mi-value" id="miName">—</span></div>
+          <div><span class="mi-label">Passport No.</span><span class="mi-value" id="miPassport">—</span></div>
+          <div><span class="mi-label">Nationality</span><span class="mi-value" id="miNationality">—</span></div>
+          <div><span class="mi-label">Email</span><span class="mi-value" id="miEmail">—</span></div>
+          <div><span class="mi-label">Phone</span><span class="mi-value" id="miPhone">—</span></div>
+          <div><span class="mi-label">Destination</span><span class="mi-value" id="miCountry">—</span></div>
+          <div><span class="mi-label">Visa Type</span><span class="mi-value" id="miVisaType">—</span></div>
+          <div><span class="mi-label">Travel Date</span><span class="mi-value" id="miTravelDate">—</span></div>
+          <div><span class="mi-label">Submitted</span><span class="mi-value" id="miSubmitted">—</span></div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Visa Status</h4>
+        <div class="status-edit-row">
+          <select id="miStatusSelect">
+            <option value="auto">Auto (time-based)</option>
+            <option value="0">Submitted</option>
+            <option value="1">Processing</option>
+            <option value="2">Document Verified</option>
+            <option value="3">Visa Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button type="button" class="btn btn-gold" id="miSaveStatusBtn" style="padding:9px 18px; font-size:0.82rem;">Update Status</button>
+        </div>
+        <div class="field">
+          <label for="miStatusNote">Note shown to applicant (only visible if status is Rejected)</label>
+          <textarea id="miStatusNote" rows="2" placeholder="e.g. Missing bank statement — please resubmit with updated documents."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Uploaded Documents</h4>
+        <div class="modal-doc-grid" id="miDocGrid"></div>
+        <div class="upload-box" style="margin-top:14px;">
+          <strong>Add a document on behalf of the applicant</strong>
+          PDF or image
+          <input type="file" id="miAddDocInput" multiple accept=".pdf,image/*">
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>Internal Admin Notes</h4>
+        <p class="form-note" style="margin-bottom:8px;">Private — never shown to the applicant.</p>
+        <textarea id="miInternalNotes" rows="3" placeholder="Internal remarks for staff only"></textarea>
+      </div>
+
+    </div>
+
+    <div class="admin-modal-foot">
+      <button type="button" class="admin-del-btn" id="miDeleteAppBtn">Delete Entire Application</button>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn btn-outline-navy" id="miSaveNotesBtn" style="padding:9px 18px; font-size:0.82rem;">Save Notes</button>
+        <button type="button" class="btn btn-navy" id="modalCloseBtn2" style="padding:9px 18px; font-size:0.82rem;">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../script.js"></script>
+</body>
+</html>

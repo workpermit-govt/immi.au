@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apply for a Visa — China Tradex N Tour</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand">
+      <img src="images/logo.png" alt="China Tradex N Tour" class="brand-mark">
+      <span class="brand-text">
+        <span class="name">China Tradex N Tour</span>
+        <span class="tagline">Visa &amp; Travel Services</span>
+      </span>
+    </a>
+    <nav class="main-nav" id="mainNav">
+      <a href="index.html">Home</a>
+      <a href="index.html#visas">Visa Types</a>
+      <a href="index.html#about">About Us</a>
+      <a href="apply.html" class="active">Apply Now</a>
+      <a href="dashboard.html">Track Status</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">&#9776;</button>
+  </div>
+</header>
+
+<section class="page-banner">
+  <div class="container">
+    <div class="admin-mode-banner" id="adminModeBanner" style="display:none;">&#128274; Admin Mode — you are submitting this application on behalf of a user</div>
+    <h1>Visa Application Form</h1>
+    <p>Fill in your details below. You'll receive a unique Application ID immediately after submitting.</p>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="container">
+
+    <!-- FORM -->
+    <form class="form-wrap reveal" id="visaForm" novalidate>
+
+      <h3 class="form-section-title">Personal Information</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label for="fullName">Full Name <span class="req">*</span></label>
+          <input type="text" id="fullName" name="fullName" placeholder="As shown on passport" required>
+        </div>
+        <div class="field">
+          <label for="dob">Date of Birth <span class="req">*</span></label>
+          <input type="date" id="dob" name="dob" required>
+        </div>
+        <div class="field">
+          <label for="nationality">Nationality <span class="req">*</span></label>
+          <input type="text" id="nationality" name="nationality" placeholder="e.g. Bangladeshi" required>
+        </div>
+        <div class="field">
+          <label for="passport">Passport Number <span class="req">*</span></label>
+          <input type="text" id="passport" name="passport" placeholder="e.g. A12345678" required>
+        </div>
+        <div class="field">
+          <label for="email">Email Address <span class="req">*</span></label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="phone">Phone Number <span class="req">*</span></label>
+          <input type="tel" id="phone" name="phone" placeholder="+880 1XXXXXXXXX" required>
+        </div>
+        <div class="field full">
+          <label for="address">Current Address <span class="req">*</span></label>
+          <textarea id="address" name="address" rows="2" placeholder="Street, City, Country" required></textarea>
+        </div>
+      </div>
+
+      <h3 class="form-section-title">Visa Details</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label for="destCountry">Destination Country <span class="req">*</span></label>
+          <select id="destCountry" name="destCountry" required>
+            <option value="" disabled selected>Select the country you're applying to</option>
+            <optgroup label="Popular Destinations">
+              <option value="China">China</option>
+              <option value="Hong Kong">Hong Kong</option>
+              <option value="Macau">Macau</option>
+            </optgroup>
+            <optgroup label="All Countries">
+              <option value="Afghanistan">Afghanistan</option>
+              <option value="Albania">Albania</option>
+              <option value="Algeria">Algeria</option>
+              <option value="Andorra">Andorra</option>
+              <option value="Angola">Angola</option>
+              <option value="Antigua and Barbuda">Antigua and Barbuda</option>
+              <option value="Argentina">Argentina</option>
+              <option value="Armenia">Armenia</option>
+              <option value="Australia">Australia</option>
+              <option value="Austria">Austria</option>
+              <option value="Azerbaijan">Azerbaijan</option>
+              <option value="Bahamas">Bahamas</option>
+              <option value="Bahrain">Bahrain</option>
+              <option value="Bangladesh">Bangladesh</option>
+              <option value="Barbados">Barbados</option>
+              <option value="Belarus">Belarus</option>
+              <option value="Belgium">Belgium</option>
+              <option value="Belize">Belize</option>
+              <option value="Benin">Benin</option>
+              <option value="Bhutan">Bhutan</option>
+              <option value="Bolivia">Bolivia</option>
+              <option value="Bosnia and Herzegovina">Bosnia and Herzegovina</option>
+              <option value="Botswana">Botswana</option>
+              <option value="Brazil">Brazil</option>
+              <option value="Brunei">Brunei</option>
+              <option value="Bulgaria">Bulgaria</option>
+              <option value="Burkina Faso">Burkina Faso</option>
+              <option value="Burundi">Burundi</option>
+              <option value="Cabo Verde">Cabo Verde</option>
+              <option value="Cambodia">Cambodia</option>
+              <option value="Cameroon">Cameroon</option>
+              <option value="Canada">Canada</option>
+              <option value="Central African Republic">Central African Republic</option>
+              <option value="Chad">Chad</option>
+              <option value="Chile">Chile</option>
+              <option value="Colombia">Colombia</option>
+              <option value="Comoros">Comoros</option>
+              <option value="Congo (Republic of)">Congo (Republic of)</option>
+              <option value="Congo (DRC)">Congo (DRC)</option>
+              <option value="Costa Rica">Costa Rica</option>
+              <option value="Croatia">Croatia</option>
+              <option value="Cuba">Cuba</option>
+              <option value="Cyprus">Cyprus</option>
+              <option value="Czechia">Czechia</option>
+              <option value="Denmark">Denmark</option>
+              <option value="Djibouti">Djibouti</option>
+              <option value="Dominica">Dominica</option>
+              <option value="Dominican Republic">Dominican Republic</option>
+              <option value="Ecuador">Ecuador</option>
+              <option value="Egypt">Egypt</option>
+              <option value="El Salvador">El Salvador</option>
+              <option value="Equatorial Guinea">Equatorial Guinea</option>
+              <option value="Eritrea">Eritrea</option>
+              <option value="Estonia">Estonia</option>
+              <option value="Eswatini">Eswatini</option>
+              <option value="Ethiopia">Ethiopia</option>
+              <option value="Fiji">Fiji</option>
+              <option value="Finland">Finland</option>
+              <option value="France">France</option>
+              <option value="Gabon">Gabon</option>
+              <option value="Gambia">Gambia</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Germany">Germany</option>
+              <option value="Ghana">Ghana</option>
+              <option value="Greece">Greece</option>
+              <option value="Grenada">Grenada</option>
+              <option value="Guatemala">Guatemala</option>
+              <option value="Guinea">Guinea</option>
+              <option value="Guinea-Bissau">Guinea-Bissau</option>
+              <option value="Guyana">Guyana</option>
+              <option value="Haiti">Haiti</option>
+              <option value="Honduras">Honduras</option>
+              <option value="Hungary">Hungary</option>
+              <option value="Iceland">Iceland</option>
+              <option value="India">India</option>
+              <option value="Indonesia">Indonesia</option>
+              <option value="Iran">Iran</option>
+              <option value="Iraq">Iraq</option>
+              <option value="Ireland">Ireland</option>
+              <option value="Israel">Israel</option>
+              <option value="Italy">Italy</option>
+              <option value="Jamaica">Jamaica</option>
+              <option value="Japan">Japan</option>
+              <option value="Jordan">Jordan</option>
+              <option value="Kazakhstan">Kazakhstan</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Kiribati">Kiribati</option>
+              <option value="Kosovo">Kosovo</option>
+              <option value="Kuwait">Kuwait</option>
+              <option value="Kyrgyzstan">Kyrgyzstan</option>
+              <option value="Laos">Laos</option>
+              <option value="Latvia">Latvia</option>
+              <option value="Lebanon">Lebanon</option>
+              <option value="Lesotho">Lesotho</option>
+              <option value="Liberia">Liberia</option>
+              <option value="Libya">Libya</option>
+              <option value="Liechtenstein">Liechtenstein</option>
+              <option value="Lithuania">Lithuania</option>
+              <option value="Luxembourg">Luxembourg</option>
+              <option value="Madagascar">Madagascar</option>
+              <option value="Malawi">Malawi</option>
+              <option value="Malaysia">Malaysia</option>
+              <option value="Maldives">Maldives</option>
+              <option value="Mali">Mali</option>
+              <option value="Malta">Malta</option>
+              <option value="Marshall Islands">Marshall Islands</option>
+              <option value="Mauritania">Mauritania</option>
+              <option value="Mauritius">Mauritius</option>
+              <option value="Mexico">Mexico</option>
+              <option value="Micronesia">Micronesia</option>
+              <option value="Moldova">Moldova</option>
+              <option value="Monaco">Monaco</option>
+              <option value="Mongolia">Mongolia</option>
+              <option value="Montenegro">Montenegro</option>
+              <option value="Morocco">Morocco</option>
+              <option value="Mozambique">Mozambique</option>
+              <option value="Myanmar">Myanmar</option>
+              <option value="Namibia">Namibia</option>
+              <option value="Nauru">Nauru</option>
+              <option value="Nepal">Nepal</option>
+              <option value="Netherlands">Netherlands</option>
+              <option value="New Zealand">New Zealand</option>
+              <option value="Nicaragua">Nicaragua</option>
+              <option value="Niger">Niger</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="North Korea">North Korea</option>
+              <option value="North Macedonia">North Macedonia</option>
+              <option value="Norway">Norway</option>
+              <option value="Oman">Oman</option>
+              <option value="Pakistan">Pakistan</option>
+              <option value="Palau">Palau</option>
+              <option value="Palestine">Palestine</option>
+              <option value="Panama">Panama</option>
+              <option value="Papua New Guinea">Papua New Guinea</option>
+              <option value="Paraguay">Paraguay</option>
+              <option value="Peru">Peru</option>
+              <option value="Philippines">Philippines</option>
+              <option value="Poland">Poland</option>
+              <option value="Portugal">Portugal</option>
+              <option value="Qatar">Qatar</option>
+              <option value="Romania">Romania</option>
+              <option value="Russia">Russia</option>
+              <option value="Rwanda">Rwanda</option>
+              <option value="Saint Kitts and Nevis">Saint Kitts and Nevis</option>
+              <option value="Saint Lucia">Saint Lucia</option>
+              <option value="Saint Vincent and the Grenadines">Saint Vincent and the Grenadines</option>
+              <option value="Samoa">Samoa</option>
+              <option value="San Marino">San Marino</option>
+              <option value="Sao Tome and Principe">Sao Tome and Principe</option>
+              <option value="Saudi Arabia">Saudi Arabia</option>
+              <option value="Senegal">Senegal</option>
+              <option value="Serbia">Serbia</option>
+              <option value="Seychelles">Seychelles</option>
+              <option value="Sierra Leone">Sierra Leone</option>
+              <option value="Singapore">Singapore</option>
+              <option value="Slovakia">Slovakia</option>
+              <option value="Slovenia">Slovenia</option>
+              <option value="Solomon Islands">Solomon Islands</option>
+              <option value="Somalia">Somalia</option>
+              <option value="South Africa">South Africa</option>
+              <option value="South Korea">South Korea</option>
+              <option value="South Sudan">South Sudan</option>
+              <option value="Spain">Spain</option>
+              <option value="Sri Lanka">Sri Lanka</option>
+              <option value="Sudan">Sudan</option>
+              <option value="Suriname">Suriname</option>
+              <option value="Sweden">Sweden</option>
+              <option value="Switzerland">Switzerland</option>
+              <option value="Syria">Syria</option>
+              <option value="Taiwan">Taiwan</option>
+              <option value="Tajikistan">Tajikistan</option>
+              <option value="Tanzania">Tanzania</option>
+              <option value="Thailand">Thailand</option>
+              <option value="Timor-Leste">Timor-Leste</option>
+              <option value="Togo">Togo</option>
+              <option value="Tonga">Tonga</option>
+              <option value="Trinidad and Tobago">Trinidad and Tobago</option>
+              <option value="Tunisia">Tunisia</option>
+              <option value="Turkey">Turkey</option>
+              <option value="Turkmenistan">Turkmenistan</option>
+              <option value="Tuvalu">Tuvalu</option>
+              <option value="Uganda">Uganda</option>
+              <option value="Ukraine">Ukraine</option>
+              <option value="United Arab Emirates">United Arab Emirates</option>
+              <option value="United Kingdom">United Kingdom</option>
+              <option value="United States">United States</option>
+              <option value="Uruguay">Uruguay</option>
+              <option value="Uzbekistan">Uzbekistan</option>
+              <option value="Vanuatu">Vanuatu</option>
+              <option value="Vatican City">Vatican City</option>
+              <option value="Venezuela">Venezuela</option>
+              <option value="Vietnam">Vietnam</option>
+              <option value="Yemen">Yemen</option>
+              <option value="Zambia">Zambia</option>
+              <option value="Zimbabwe">Zimbabwe</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label for="visaType">Visa Type <span class="req">*</span></label>
+          <select id="visaType" name="visaType" required>
+            <option value="" disabled selected>Select visa type</option>
+            <option value="Work Permit">Work Permit (Z Visa)</option>
+            <option value="Student Visa">Student Visa (X Visa)</option>
+            <option value="Tourist Visa">Tourist Visa (L Visa)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="travelDate">Intended Travel Date <span class="req">*</span></label>
+          <input type="date" id="travelDate" name="travelDate" required>
+        </div>
+        <div class="field full">
+          <label for="purpose">Purpose of Travel</label>
+          <textarea id="purpose" name="purpose" rows="2" placeholder="Briefly describe the purpose of your trip"></textarea>
+        </div>
+      </div>
+
+      <h3 class="form-section-title">Supporting Documents</h3>
+      <div class="upload-box">
+        <strong>Upload your documents</strong>
+        Passport copy, photo, and supporting letters (PDF or image)
+        <input type="file" id="documents" name="documents" multiple accept=".pdf,image/*">
+      </div>
+      <div class="file-preview-grid" id="filePreviewGrid"></div>
+
+      <div class="form-footer">
+        <span class="form-note">By submitting, you confirm the details above are accurate to the best of your knowledge.</span>
+        <button type="submit" class="btn btn-navy">Submit Application</button>
+      </div>
+    </form>
+
+    <!-- CONFIRMATION PANEL (shown after submit) -->
+    <div class="confirm-panel" id="confirmPanel">
+      <div class="confirm-stamp">&#10003;</div>
+      <h2>Application Submitted</h2>
+      <p>Thank you, <span id="confirmName">applicant</span>. Your <span id="confirmCountry">visa</span> application has been received and is now being processed.</p>
+        <div class="app-id-box">
+        <div class="label">Your Passport Number</div>
+        <div class="id" id="confirmAppId">PASSPORT NUMBER</div>
+      </div>
+      <p class="form-note">You can now check your real-time visa status on the Dashboard using your Passport Number.</p>
+
+      <div class="confirm-actions">
+        <a href="dashboard.html" class="btn btn-gold" id="trackNowBtn">Track My Application</a>
+        <a href="index.html" class="btn btn-outline" style="color:var(--navy); border-color:var(--border);">Back to Home</a>
+        <a href="admin/admin-dashboard.html" class="btn btn-navy" id="adminBackBtn" style="display:none;">Back to Admin Dashboard</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-bottom" style="border-top:none; padding-top:0;">
+    <span>&copy; 2026 China Tradex N Tour. All rights reserved.</span>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

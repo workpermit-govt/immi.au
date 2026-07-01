@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Application — China Tradex N Tour</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand">
+      <img src="images/logo.png" alt="China Tradex N Tour" class="brand-mark">
+      <span class="brand-text">
+        <span class="name">China Tradex N Tour</span>
+        <span class="tagline">Visa &amp; Travel Services</span>
+      </span>
+    </a>
+    <nav class="main-nav" id="mainNav">
+      <a href="index.html">Home</a>
+      <a href="index.html#visas">Visa Types</a>
+      <a href="index.html#about">About Us</a>
+      <a href="apply.html">Apply Now</a>
+      <a href="dashboard.html" class="active">Track Status</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">&#9776;</button>
+  </div>
+</header>
+
+<section class="page-banner modern-banner">
+  <div class="container">
+    <!-- আধুনিক লাইভ ট্র্যাকিং ব্যাজ -->
+    <div class="banner-badge">
+      <span class="pulse-dot"></span> Real-Time Tracking Enabled
+    </div>
+    <h1>Track Your Visa Journey</h1>
+    <p>Enter your Passport Number below to securely check the live progress and current status of your visa application.</p>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="container">
+
+    <!-- LOOKUP -->
+    <div class="lookup-float">
+      <div class="lookup-wrap" id="lookupWrap">
+        <h3 style="margin-bottom:6px;">Find your application</h3>
+        <p class="form-note" style="margin-bottom:18px;">Use your Passport Number to track status</p>
+        <div class="lookup-row">
+          <input type="text" id="appIdInput" placeholder="Enter Passport Number" style="text-transform: uppercase;">
+          <button class="btn btn-navy" id="lookupBtn">Track</button>
+        </div>
+        <p class="lookup-error" id="lookupError">We couldn't find an application with that Passport Number. Please check and try again.</p>
+        <p class="lookup-hint">Don't have an ID yet? <button id="demoFillBtn">Try a demo ID</button> &nbsp;|&nbsp; <a href="apply.html" style="color:var(--navy); font-weight:600;">Apply Now</a></p>
+      </div>
+    </div>
+
+    <!-- DASHBOARD RESULT -->
+    <div class="dashboard-panel" id="dashboardPanel">
+      <div class="dash-card">
+        <div class="dash-head">
+          <div>
+            <div class="applicant-name" id="dashName">—</div>
+            <div class="meta-line">Passport Number: <strong id="dashAppId">-</strong> &middot; <span id="dashVisaType">-</span></div>
+          </div>
+          <span class="status-badge" id="dashStatusBadge">Processing</span>
+        </div>
+
+        <div class="rejection-banner" id="rejectionBanner">
+          <div class="rb-title">&#9888; Your application has been rejected</div>
+          <div class="rb-text" id="rejectionText">Please contact our office for more details about this decision.</div>
+        </div>
+
+        <div class="tracker" id="tracker">
+          <div class="fill-line" id="trackerFill" style="width:0%;"></div>
+          <div class="tracker-step" data-step="1">
+            <div class="tracker-dot">1</div>
+            <div class="t-label">Submitted</div>
+            <div class="t-date" id="dateSubmitted">—</div>
+          </div>
+          <div class="tracker-step" data-step="2">
+            <div class="tracker-dot">2</div>
+            <div class="t-label">Processing</div>
+            <div class="t-date">—</div>
+          </div>
+          <div class="tracker-step" data-step="3">
+            <div class="tracker-dot">3</div>
+            <div class="t-label">Document Verified</div>
+            <div class="t-date">—</div>
+          </div>
+          <div class="tracker-step" data-step="4">
+            <div class="tracker-dot">4</div>
+            <div class="t-label">Visa Approved</div>
+            <div class="t-date">—</div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="dash-stat">
+            <div class="label">Visa Type</div>
+            <div class="value" id="statVisaType">—</div>
+          </div>
+          <div class="dash-stat">
+            <div class="label">Submitted On</div>
+            <div class="value" id="statSubmitted">—</div>
+          </div>
+          <div class="dash-stat">
+            <div class="label">Estimated Completion</div>
+            <div class="value" id="statEta">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <h3 style="font-size:1.05rem; margin-bottom:18px;">Application Timeline</h3>
+        <ul class="timeline" id="timelineList"></ul>
+      </div>
+
+      <button class="btn btn-outline" style="color:var(--navy); border-color:var(--border);" id="searchAnotherBtn">Search another application</button>
+    </div>
+
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-bottom" style="border-top:none; padding-top:0;">
+    <span>&copy; 2026 China Tradex N Tour. All rights reserved.</span>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
