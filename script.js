@@ -1,12 +1,23 @@
 /* ===========================================================
-   China Tradex N Tour — site logic
-   Storage key: localStorage["ctx_applications"]
-   Key used: Passport Number (Customized)
+   VisaLink International — site logic
+   Backend: Firebase Firestore (real-time, cross-device)
+   Applications are stored in the "applications" collection,
+   keyed by document ID = Passport Number.
+   Each application's uploaded files live in the
+   "applications/{id}/documents" subcollection.
 =========================================================== */
 
-const STORAGE_KEY = "ctx_applications";
+const db = firebase.firestore();
+const auth = firebase.auth();
+const APPLICATIONS_COLLECTION = "applications";
 const STAGES = ["Submitted", "Processing", "Document Verified", "Visa Approved"];
 const STAGE_BADGE_CLASSES = ["status-processing", "status-processing", "status-verified", "status-approved"];
+
+/* Max width/height (px) uploaded images are resized to before being
+   stored as base64 in Firestore, and the JPEG quality used. This keeps
+   each document comfortably under Firestore's 1MB per-document limit. */
+const IMG_MAX_DIMENSION = 1280;
+const IMG_QUALITY = 0.7;
 
 /* Shared store for files selected on the Apply form before they're read into the record on submit */
 let uploadedFileStore = [];
@@ -14,10 +25,8 @@ let uploadedFileStore = [];
 /* Tracks which application is currently open in the admin "Manage" modal */
 let activeModalAppId = null;
 
-/* ---------- Admin access (client-side gate only — see note in initAdminLogin) ---------- */
-const ADMIN_SESSION_KEY = "ctx_admin_session";
-const ADMIN_USERNAME = "808212";
-const ADMIN_PASSWORD = "808212";
+/* Unsubscribe handle for the admin dashboard's live Firestore listener */
+let adminUnsubscribe = null;
 
 /* ---------- Mobile nav toggle (all pages) ---------- */
 document.addEventListener("DOMContentLoaded", () => {
@@ -145,16 +154,41 @@ function initDestinationSearch() {
 
 /* ---------- Helpers ---------- */
 
-function getApplications() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch (e) {
-    return {};
-  }
+function getApplication(id) {
+  return db.collection(APPLICATIONS_COLLECTION).doc(id).get()
+    .then((snap) => (snap.exists ? snap.data() : null));
 }
 
-function saveApplications(apps) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
+/* Creates a NEW application only — fails (by security rule) if the ID already exists.
+   Used by the public Apply form so no one can overwrite someone else's record. */
+function createApplication(id, record) {
+  return db.collection(APPLICATIONS_COLLECTION).doc(id).set(record);
+}
+
+/* Admin-only partial update of an existing application. */
+function updateApplication(id, partial) {
+  return db.collection(APPLICATIONS_COLLECTION).doc(id).set(partial, { merge: true });
+}
+
+function deleteApplicationDoc(id) {
+  return db.collection(APPLICATIONS_COLLECTION).doc(id).delete();
+}
+
+function getDocumentsSubcollection(appId) {
+  return db.collection(APPLICATIONS_COLLECTION).doc(appId).collection("documents");
+}
+
+function addDocumentRecord(appId, doc) {
+  return getDocumentsSubcollection(appId).doc(doc.id).set(doc);
+}
+
+function deleteDocumentRecord(appId, docId) {
+  return getDocumentsSubcollection(appId).doc(docId).delete();
+}
+
+function getDocumentsForApp(appId) {
+  return getDocumentsSubcollection(appId).orderBy("uploadedAt").get()
+    .then((snap) => snap.docs.map((d) => d.data()));
 }
 
 function formatDate(d) {
@@ -189,23 +223,61 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-/* Reads an array of File objects into storable document records (base64 data URLs)
-   so they persist in localStorage alongside the application. */
+/* Reads an array of File objects into storable document records.
+   Images are resized/compressed via <canvas> before being converted to
+   base64 so each document comfortably fits Firestore's 1MB doc limit.
+   Non-images (e.g. PDFs) are stored as-is; very large PDFs may fail to
+   save — the UI warns the user in that case. */
+function compressImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > IMG_MAX_DIMENSION || height > IMG_MAX_DIMENSION) {
+        const scale = IMG_MAX_DIMENSION / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/jpeg", IMG_QUALITY));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Image could not be loaded for compression"));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function readFilesAsDocuments(files) {
-  const reads = files.map((file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve({
-        id: "doc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-        name: file.name,
-        type: file.type || "application/octet-stream",
-        size: file.size,
-        dataUrl: reader.result,
-        uploadedAt: Date.now()
-      });
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
+  const reads = files.map(async (file) => {
+    const isImage = (file.type || "").startsWith("image/");
+    const dataUrl = isImage ? await compressImageFile(file) : await readFileAsDataUrl(file);
+    // Rough byte size of the resulting base64 string (for the size label + a safety check)
+    const approxBytes = Math.round((dataUrl.length * 3) / 4);
+    return {
+      id: "doc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: approxBytes,
+      dataUrl,
+      uploadedAt: Date.now()
+    };
   });
   return Promise.all(reads);
 }
@@ -260,14 +332,13 @@ function initApplyForm() {
     }
 
     // ট্র্যাকিং আইডি হিসেবে এখন সরাসরি পাসপোর্ট নাম্বার সেট হবে
-    const trackingId = passport; 
+    const trackingId = passport;
 
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn ? submitBtn.textContent : "";
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting..."; }
 
-    // আপলোড করা ফাইলগুলো base64 ডকুমেন্টে রূপান্তর করা হচ্ছে, যাতে অ্যাডমিন পরে
-    // এগুলো এডমিন প্যানেল থেকে দেখতে/মুছতে পারে
+    // আপলোড করা ফাইলগুলো (কম্প্রেসড) base64 ডকুমেন্টে রূপান্তর করা হচ্ছে
     let documents = [];
     try {
       documents = await readFilesAsDocuments(uploadedFileStore);
@@ -286,30 +357,34 @@ function initApplyForm() {
       passport,
       travelDate,
       submittedAt: Date.now(),
-      documents,
+      documentCount: documents.length,
       manualStatus: null,   // null = সয়ংক্রিয় (সময়-ভিত্তিক); অ্যাডমিন চাইলে এটা ওভাররাইড করতে পারবে
       statusNote: "",
       internalNotes: ""
     };
 
-    const apps = getApplications();
-    apps[trackingId] = record; // লোকাল স্টোরেজে পাসপোর্ট নাম্বার দিয়ে সেভ হচ্ছে
-
     try {
-      saveApplications(apps);
-    } catch (err) {
-      console.error("Storage error:", err);
-      // স্টোরেজ কোটা পার হয়ে গেলে ডকুমেন্ট ছাড়া সেভ করার চেষ্টা করা হচ্ছে
-      record.documents = [];
-      apps[trackingId] = record;
-      try {
-        saveApplications(apps);
-        alert("ডকুমেন্টগুলো আকারে অনেক বড় হওয়ায় সংরক্ষণ করা যায়নি, তবে আপনার আবেদন জমা হয়েছে। দয়া করে আমাদের অফিসে সরাসরি ডকুমেন্ট পাঠান।");
-      } catch (err2) {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalBtnText; }
-        alert("আবেদনটি সংরক্ষণ করা যায়নি। দয়া করে আবার চেষ্টা করুন।");
-        return;
+      // পাসপোর্ট নাম্বার দিয়ে Firestore-এ নতুন অ্যাপ্লিকেশন তৈরি হচ্ছে
+      // (একই আইডি আগে থেকে থাকলে সিকিউরিটি রুলস এটা আটকে দেবে)
+      await createApplication(trackingId, record);
+
+      // প্রতিটি ডকুমেন্ট আলাদা সাব-ডকুমেন্ট হিসেবে সেভ হচ্ছে (Firestore-এর 1MB লিমিট এড়াতে)
+      for (const doc of documents) {
+        try {
+          await addDocumentRecord(trackingId, doc);
+        } catch (docErr) {
+          console.error("Document save error:", docErr);
+        }
       }
+    } catch (err) {
+      console.error("Application save error:", err);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalBtnText; }
+      if (err && err.code === "permission-denied") {
+        alert("এই পাসপোর্ট নাম্বার দিয়ে ইতিমধ্যে একটি আবেদন জমা আছে, অথবা সার্ভার অনুমতি দিচ্ছে না। দয়া করে পাসপোর্ট নাম্বার চেক করুন।");
+      } else {
+        alert("আবেদনটি সংরক্ষণ করা যায়নি। ইন্টারনেট সংযোগ চেক করে আবার চেষ্টা করুন।");
+      }
+      return;
     }
 
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalBtnText; }
@@ -413,16 +488,29 @@ function initDashboard() {
   const demoFillBtn = document.getElementById("demoFillBtn");
   const searchAnotherBtn = document.getElementById("searchAnotherBtn");
 
-  const runLookup = () => {
+  const runLookup = async () => {
     const id = input.value.trim().toUpperCase(); // ইউজার পাসপোর্ট টাইপ করলে তা রিড করবে
     if (errorMsg) errorMsg.classList.remove("show");
+    if (!id) return;
 
-    const record = findApplication(id);
-    if (!record) {
+    lookupBtn.disabled = true;
+    const originalLabel = lookupBtn.textContent;
+    lookupBtn.textContent = "Checking...";
+
+    try {
+      const record = await findApplication(id);
+      if (!record) {
+        if (errorMsg) errorMsg.classList.add("show");
+        return;
+      }
+      renderDashboard(record);
+    } catch (err) {
+      console.error("Lookup error:", err);
       if (errorMsg) errorMsg.classList.add("show");
-      return;
+    } finally {
+      lookupBtn.disabled = false;
+      lookupBtn.textContent = originalLabel;
     }
-    renderDashboard(record);
   };
 
   lookupBtn.addEventListener("click", runLookup);
@@ -454,20 +542,21 @@ function initDashboard() {
   }
 }
 
-function findApplication(id) {
-  const apps = getApplications();
-  if (apps[id]) return apps[id]; // পাসপোর্ট নাম্বার দিয়ে সার্চ করলে এখান থেকে ডাটা ম্যাচ করবে
+async function findApplication(id) {
+  if (!id) return null;
 
-  // ব্যাকআপ ডেমো রেকর্ড
+  // ব্যাকআপ ডেমো রেকর্ড (আগের মতোই কাজ করবে, কোনো Firestore কল ছাড়াই)
   if (id === "CTX-2026-3381") {
     return {
       id: "CTX-2026-3381",
       name: "Wei Chen",
       visaType: "Work Permit",
-      submittedAt: Date.now() - 8 * 60000 
+      submittedAt: Date.now() - 8 * 60000
     };
   }
-  return null;
+
+  const record = await getApplication(id); // পাসপোর্ট নাম্বার দিয়ে Firestore-এ সার্চ
+  return record || null;
 }
 
 function renderDashboard(record) {
@@ -583,30 +672,36 @@ function renderDashboard(record) {
 
 /* ===========================================================
    Admin area
-   NOTE: This is a client-side UI gate only — credentials and
-   the session flag live in this file / localStorage, both of
-   which are visible to anyone who opens dev tools. It hides
-   the panel from casual visitors but is NOT real security.
-   For genuine protection, move auth to a real backend/server.
+   Real authentication via Firebase Authentication (email/password).
+   Create the admin user in Firebase Console > Authentication > Users.
+   Firestore security rules restrict write/delete/list access to
+   signed-in users only — see FIRESTORE_RULES.txt.
 =========================================================== */
 
 function initAdminLogin() {
   const form = document.getElementById("adminLoginForm");
   if (!form) return;
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const user = document.getElementById("adminUser").value.trim();
+    const email = document.getElementById("adminUser").value.trim();
     const pass = document.getElementById("adminPass").value;
     const errorMsg = document.getElementById("adminError");
+    const submitBtn = form.querySelector('button[type="submit"]');
 
-    if (user === ADMIN_USERNAME && pass === ADMIN_PASSWORD) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+    if (errorMsg) errorMsg.classList.remove("show");
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Signing in..."; }
+
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
       window.location.href = "admin-dashboard.html";
-    } else {
+    } catch (err) {
+      console.error("Admin login error:", err);
       if (errorMsg) errorMsg.classList.add("show");
       form.classList.add("shake");
       setTimeout(() => form.classList.remove("shake"), 400);
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Sign In"; }
     }
   });
 }
@@ -615,27 +710,48 @@ function initAdminDashboard() {
   const tableBody = document.getElementById("adminTableBody");
   if (!tableBody) return;
 
-  // Gate: bounce non-authenticated visitors straight back to login
-  if (sessionStorage.getItem(ADMIN_SESSION_KEY) !== "1") {
-    window.location.href = "admin-login.html";
-    return;
-  }
-
-  const logoutBtn = document.getElementById("adminLogoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  // Gate: bounce non-authenticated visitors straight back to login.
+  // onAuthStateChanged fires once Firebase resolves the current session.
+  auth.onAuthStateChanged((user) => {
+    if (!user) {
+      if (adminUnsubscribe) { adminUnsubscribe(); adminUnsubscribe = null; }
       window.location.href = "admin-login.html";
+      return;
+    }
+    startAdminDashboard();
+  });
+}
+
+function startAdminDashboard() {
+  const logoutBtn = document.getElementById("adminLogoutBtn");
+  if (logoutBtn && !logoutBtn.dataset.bound) {
+    logoutBtn.dataset.bound = "1";
+    logoutBtn.addEventListener("click", () => {
+      if (adminUnsubscribe) { adminUnsubscribe(); adminUnsubscribe = null; }
+      auth.signOut().then(() => { window.location.href = "admin-login.html"; });
     });
   }
 
   const searchInput = document.getElementById("adminSearch");
-  if (searchInput) {
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = "1";
     searchInput.addEventListener("input", () => renderAdminTable(searchInput.value.trim().toLowerCase()));
   }
 
   initAppModal();
-  renderAdminTable("");
+
+  // Real-time listener: any change made from ANY device (new application,
+  // status update, deletion) is reflected here instantly, without a refresh.
+  if (adminUnsubscribe) adminUnsubscribe();
+  adminUnsubscribe = db.collection(APPLICATIONS_COLLECTION)
+    .onSnapshot(
+      (snapshot) => {
+        const records = snapshot.docs.map((d) => d.data());
+        window.__latestAdminRecords = records;
+        renderAdminTable(document.getElementById("adminSearch")?.value.trim().toLowerCase() || "");
+      },
+      (err) => console.error("Admin live listener error:", err)
+    );
 }
 
 function renderAdminTable(query) {
@@ -643,8 +759,8 @@ function renderAdminTable(query) {
   const emptyState = document.getElementById("adminEmpty");
   if (!tableBody) return;
 
-  const apps = getApplications();
-  let records = Object.values(apps).sort((a, b) => b.submittedAt - a.submittedAt);
+  const allRecords = window.__latestAdminRecords || [];
+  let records = allRecords.slice().sort((a, b) => b.submittedAt - a.submittedAt);
 
   if (query) {
     records = records.filter((r) =>
@@ -654,7 +770,6 @@ function renderAdminTable(query) {
   }
 
   // Update summary stat cards (always reflect the full, unfiltered dataset)
-  const allRecords = Object.values(apps);
   const counts = [0, 0, 0, 0];
   let rejectedCount = 0;
   allRecords.forEach((r) => {
@@ -678,7 +793,7 @@ function renderAdminTable(query) {
 
   records.forEach((r) => {
     const info = getStatusInfo(r);
-    const docCount = Array.isArray(r.documents) ? r.documents.length : 0;
+    const docCount = r.documentCount || 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="at-name">${escapeHtml(r.name || "—")}</td>
@@ -705,21 +820,35 @@ function renderAdminTable(query) {
   });
 
   tableBody.querySelectorAll(".admin-del-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       if (!confirm("Permanently delete this application and all its documents? This cannot be undone.")) return;
-      const allApps = getApplications();
-      delete allApps[btn.dataset.id];
-      saveApplications(allApps);
-      renderAdminTable(document.getElementById("adminSearch")?.value.trim().toLowerCase() || "");
+      btn.disabled = true;
+      try {
+        await deleteAllDocuments(btn.dataset.id);
+        await deleteApplicationDoc(btn.dataset.id);
+        // onSnapshot listener re-renders the table automatically
+      } catch (err) {
+        console.error("Delete error:", err);
+        alert("মুছে ফেলা যায়নি। আবার চেষ্টা করুন।");
+        btn.disabled = false;
+      }
     });
   });
+}
+
+async function deleteAllDocuments(appId) {
+  const snap = await getDocumentsSubcollection(appId).get();
+  const batch = db.batch();
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  if (!snap.empty) await batch.commit();
 }
 
 /* ---------- Admin: Application Detail / Manage Modal ---------- */
 
 function initAppModal() {
   const overlay = document.getElementById("appModalOverlay");
-  if (!overlay) return;
+  if (!overlay || overlay.dataset.bound) return;
+  overlay.dataset.bound = "1";
 
   const closeModal = () => closeAppModal();
   document.getElementById("modalCloseBtn")?.addEventListener("click", closeModal);
@@ -731,36 +860,45 @@ function initAppModal() {
     if (e.key === "Escape" && overlay.classList.contains("show")) closeModal();
   });
 
-  document.getElementById("miSaveStatusBtn")?.addEventListener("click", () => {
+  document.getElementById("miSaveStatusBtn")?.addEventListener("click", async () => {
     if (!activeModalAppId) return;
-    const apps = getApplications();
-    const record = apps[activeModalAppId];
-    if (!record) return;
-
+    const btn = document.getElementById("miSaveStatusBtn");
     const selectVal = document.getElementById("miStatusSelect").value;
-    record.manualStatus = selectVal === "auto" ? null : (selectVal === "rejected" ? "rejected" : Number(selectVal));
-    record.statusNote = document.getElementById("miStatusNote").value.trim();
-    record.lastUpdated = Date.now();
+    const manualStatus = selectVal === "auto" ? null : (selectVal === "rejected" ? "rejected" : Number(selectVal));
+    const statusNote = document.getElementById("miStatusNote").value.trim();
 
-    apps[activeModalAppId] = record;
-    saveApplications(apps);
-    renderAdminTable(document.getElementById("adminSearch")?.value.trim().toLowerCase() || "");
-    populateModal(record);
-    flashSaved("miSaveStatusBtn", "Status Updated");
+    btn.disabled = true;
+    try {
+      await updateApplication(activeModalAppId, {
+        manualStatus,
+        statusNote,
+        lastUpdated: Date.now()
+      });
+      flashSaved("miSaveStatusBtn", "Status Updated");
+    } catch (err) {
+      console.error("Status save error:", err);
+      alert("সেভ করা যায়নি। আবার চেষ্টা করুন।");
+      btn.disabled = false;
+    }
   });
 
-  document.getElementById("miSaveNotesBtn")?.addEventListener("click", () => {
+  document.getElementById("miSaveNotesBtn")?.addEventListener("click", async () => {
     if (!activeModalAppId) return;
-    const apps = getApplications();
-    const record = apps[activeModalAppId];
-    if (!record) return;
+    const btn = document.getElementById("miSaveNotesBtn");
+    const internalNotes = document.getElementById("miInternalNotes").value.trim();
 
-    record.internalNotes = document.getElementById("miInternalNotes").value.trim();
-    record.lastUpdated = Date.now();
-
-    apps[activeModalAppId] = record;
-    saveApplications(apps);
-    flashSaved("miSaveNotesBtn", "Notes Saved");
+    btn.disabled = true;
+    try {
+      await updateApplication(activeModalAppId, {
+        internalNotes,
+        lastUpdated: Date.now()
+      });
+      flashSaved("miSaveNotesBtn", "Notes Saved");
+    } catch (err) {
+      console.error("Notes save error:", err);
+      alert("সেভ করা যায়নি। আবার চেষ্টা করুন।");
+      btn.disabled = false;
+    }
   });
 
   document.getElementById("miAddDocInput")?.addEventListener("change", async (e) => {
@@ -768,18 +906,17 @@ function initAppModal() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const apps = getApplications();
-    const record = apps[activeModalAppId];
-    if (!record) return;
-
     try {
       const newDocs = await readFilesAsDocuments(files);
-      record.documents = (record.documents || []).concat(newDocs);
-      record.lastUpdated = Date.now();
-      apps[activeModalAppId] = record;
-      saveApplications(apps);
-      populateModal(record);
-      renderAdminTable(document.getElementById("adminSearch")?.value.trim().toLowerCase() || "");
+      for (const doc of newDocs) {
+        await addDocumentRecord(activeModalAppId, doc);
+      }
+      const existingDocs = await getDocumentsForApp(activeModalAppId);
+      await updateApplication(activeModalAppId, {
+        documentCount: existingDocs.length,
+        lastUpdated: Date.now()
+      });
+      await refreshModal(activeModalAppId);
     } catch (err) {
       console.error(err);
       alert("ডকুমেন্ট যোগ করা যায়নি, হয়তো ফাইলটি অনেক বড়।");
@@ -787,27 +924,37 @@ function initAppModal() {
     e.target.value = "";
   });
 
-  document.getElementById("miDeleteAppBtn")?.addEventListener("click", () => {
+  document.getElementById("miDeleteAppBtn")?.addEventListener("click", async () => {
     if (!activeModalAppId) return;
     if (!confirm("Permanently delete this application and all its documents? This cannot be undone.")) return;
-    const apps = getApplications();
-    delete apps[activeModalAppId];
-    saveApplications(apps);
-    closeAppModal();
-    renderAdminTable(document.getElementById("adminSearch")?.value.trim().toLowerCase() || "");
+    try {
+      await deleteAllDocuments(activeModalAppId);
+      await deleteApplicationDoc(activeModalAppId);
+      closeAppModal();
+      // onSnapshot listener re-renders the table automatically
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("মুছে ফেলা যায়নি। আবার চেষ্টা করুন।");
+    }
   });
 }
 
-function openAppModal(id) {
-  const apps = getApplications();
-  const record = apps[id];
+async function openAppModal(id) {
+  const record = await getApplication(id);
   if (!record) return;
 
   activeModalAppId = id;
-  populateModal(record);
-
   const overlay = document.getElementById("appModalOverlay");
   if (overlay) overlay.classList.add("show");
+
+  await refreshModal(id, record);
+}
+
+async function refreshModal(id, preloadedRecord) {
+  const record = preloadedRecord || await getApplication(id);
+  if (!record) return;
+  const docs = await getDocumentsForApp(id);
+  populateModal(record, docs);
 }
 
 function closeAppModal() {
@@ -816,7 +963,7 @@ function closeAppModal() {
   if (overlay) overlay.classList.remove("show");
 }
 
-function populateModal(record) {
+function populateModal(record, docs) {
   setText("modalAppTitle", record.name || "Application Details");
   setText("miName", record.name || "—");
   setText("miPassport", record.passport || record.id || "—");
@@ -840,14 +987,13 @@ function populateModal(record) {
   const internalEl = document.getElementById("miInternalNotes");
   if (internalEl) internalEl.value = record.internalNotes || "";
 
-  renderModalDocs(record);
+  renderModalDocs(docs || []);
 }
 
-function renderModalDocs(record) {
+function renderModalDocs(docs) {
   const grid = document.getElementById("miDocGrid");
   if (!grid) return;
 
-  const docs = Array.isArray(record.documents) ? record.documents : [];
   if (!docs.length) {
     grid.innerHTML = `<p class="modal-doc-empty">No documents uploaded for this application.</p>`;
     return;
@@ -875,18 +1021,21 @@ function renderModalDocs(record) {
   });
 
   grid.querySelectorAll(".file-remove").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       if (!activeModalAppId) return;
       if (!confirm("Delete this document?")) return;
-      const apps = getApplications();
-      const rec = apps[activeModalAppId];
-      if (!rec) return;
-      rec.documents = (rec.documents || []).filter((d) => d.id !== btn.dataset.docId);
-      rec.lastUpdated = Date.now();
-      apps[activeModalAppId] = rec;
-      saveApplications(apps);
-      populateModal(rec);
-      renderAdminTable(document.getElementById("adminSearch")?.value.trim().toLowerCase() || "");
+      try {
+        await deleteDocumentRecord(activeModalAppId, btn.dataset.docId);
+        const remainingDocs = await getDocumentsForApp(activeModalAppId);
+        await updateApplication(activeModalAppId, {
+          documentCount: remainingDocs.length,
+          lastUpdated: Date.now()
+        });
+        await refreshModal(activeModalAppId);
+      } catch (err) {
+        console.error("Document delete error:", err);
+        alert("ডকুমেন্ট মুছা যায়নি। আবার চেষ্টা করুন।");
+      }
     });
   });
 }
@@ -896,7 +1045,6 @@ function flashSaved(btnId, message) {
   if (!btn) return;
   const original = btn.textContent;
   btn.textContent = message;
-  btn.disabled = true;
   setTimeout(() => {
     btn.textContent = original;
     btn.disabled = false;
